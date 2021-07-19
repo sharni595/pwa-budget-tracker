@@ -1,45 +1,69 @@
 const FILES_TO_CACHE = [
+    "/",
     "./index.html",
     "./js/index.js",
-    "./idb.js",
-    "./css/style.css",
+    "./js/idb.js",
+    "./css/styles.css",
     //add all icons
 ];
 
 const APP_PREFIX = 'BudgetTracker-';     
 const VERSION = 'version_01';
 const CACHE_NAME = APP_PREFIX + VERSION;
-const DATA_CACHE_NAME = 'data_cache_v1'
+const DATA_CACHE_NAME = APP_PREFIX + 'data_cache' + VERSION;
 
 
   
-  // Cache resources
-  self.addEventListener('install', function (e) {
-    e.waitUntil(
-      caches.open(CACHE_NAME).then(function (cache) {
-        console.log('installing cache : ' + CACHE_NAME)
-        return cache.addAll(FILES_TO_CACHE)
-      })
-    )
-  })
+// Cache resources
+self.addEventListener('install', function (e) {
+  e.waitUntil(
+    caches.open(CACHE_NAME).then(function (cache) {
+      console.log('installing cache : ' + CACHE_NAME)
+      return cache.addAll(FILES_TO_CACHE)
+    })
+  )
+})
 
 
 self.addEventListener('fetch', function (e) {
     console.log('fetch request : ' + e.request.url)
-    e.respondWith(
-      caches.match(e.request).then(function (request) {
-        if (request) { // if cache is available, respond with cache
-          console.log('responding with cache : ' + e.request.url)
-          return request
-        } else {       // if there are no cache, try fetching request
-          console.log('file is not cached, fetching : ' + e.request.url)
-          return fetch(e.request)
-        }
-  
-        // You can omit if/else for console.log & put one line below like this too.
-        // return request || fetch(e.request)
-      })
-    )
+    if (e.request.url.includes('/api')) {
+      e.respondWith(
+        caches.open(DATA_CACHE_NAME)
+          .then(cache => {
+            console.log(cache);
+            return fetch(e.request)
+              .then(response => {
+                if (response.status === 200) {
+                  cache.put(e.request.url, response.clone());
+                }
+                return response;
+              })
+              .catch(err => {
+                console.log(err);
+                // Network failed, attempt to serve data from cache
+                return cache.match(e.request);
+              });
+          })
+          .catch(error => console.log(error))
+      );
+    } else {
+      e.respondWith(
+        fetch(e.request).catch(error => {
+          console.log(error);
+          return caches.match(e.request).then(response => {
+            if (response) {
+              return response;
+            } else if (
+              e.request.headers.get("accept").includes("text/html")
+            ) {
+              // return cached page
+              return caches.match(e.request.url);
+            }
+          });
+        })
+      );
+    }
   })
   
   // Delete outdated caches

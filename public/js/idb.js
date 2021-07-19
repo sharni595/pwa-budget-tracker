@@ -10,7 +10,7 @@ const request = indexedDB.open('budget', 1);
 
 request.onupgradeneeded = function(event) {
     const db = event.target.result;
-    db.createObjectStore('pending', { autoIncrement: true });
+    db.createObjectStore('new_transaction', { autoIncrement: true });
 }
 
 request.onsuccess = function(event) {
@@ -25,23 +25,23 @@ request.onerror = function(event) {
 }
 
 function saveRecord(record) {
-    const transaction = db.transaction(['pending'], 'readwrite');
-    const store = transaction.objectStore('pending');
+    const transaction = db.transaction(['new_transaction'], 'readwrite');
+    const store = transaction.objectStore('new_transaction');
     store.add(record);
 }
 
 function checkDatabase() {
-    const transaction = db.transaction(['pending'], 'readwrite');
-    const store = transaction.objectStore('pending');
+    const transaction = db.transaction(['new_transaction'], 'readwrite');
+    const store = transaction.objectStore('new_transaction');
     const getAll = store.getAll();
     
     getAll.onsuccess = function(){
         if(getAll.result.length > 0) {
-            fetch('/api/transaction/bulk', {
+            fetch('/api/transaction', {
                 method: 'POST',
-                body: JSON.stringify(getAll.results),
+                body: JSON.stringify(getAll.result),
                 headers: {
-                    Accept: 'application/json',
+                    Accept: 'application/json, text/plain, */*',
                     'Content-Type': 'application/json'
                 }
             })
@@ -51,12 +51,12 @@ function checkDatabase() {
                         throw new Error(serverResponse);
                     }
                     //open one more transaction
-                    const transaction = db.transaction(['pending'], 'readwrite');
-                    const store = transaction.objectStore('pending');
+                    const transaction = db.transaction(['new_transaction'], 'readwrite');
+                    const store = transaction.objectStore('new_transaction');
                     //clear all items in your store
                     store.clear();
 
-                    alert('All saved budgets have been submitted!');
+                    alert('All saved expenses have been submitted!');
                 })
                 .catch(err => {
                     console.log(err);
